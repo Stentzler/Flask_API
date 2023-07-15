@@ -3,12 +3,14 @@ from flask import request
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 from db import stores
+from schemas.schemas import StoreSchema
 
 blp = Blueprint("stores", __name__, description=("Stores requests:"))
 
 
 @blp.route("/store/<string:store_id>")
 class Store(MethodView):
+    @blp.response(200, StoreSchema)
     def get(self, store_id):
         try:
             return stores[store_id]
@@ -25,26 +27,20 @@ class Store(MethodView):
 
 @blp.route("/store")
 class StoreList(MethodView):
+    @blp.response(200, StoreSchema(many=True))
     def get(self):
-        return {"stores": list(stores.values())}
+        return stores.values()
 
-    def post(self):
-        store_data = request.get_json()
-
-        # Validating the JSON payload
-        if "name" not in store_data:
-            abort(
-                400,
-                'Ensure to provide the following properties in your JSON payload: "name"',
-            )
-
+    # Middleware validacao
+    @blp.arguments(StoreSchema)
+    @blp.response(201, StoreSchema)
+    def post(self, validated_store_data):
         # Validating if store already exists
         for store in stores.values():
-            if store_data["name"] == store["name"]:
+            if validated_store_data["name"] == store["name"]:
                 abort(400, message=f"Store {store['name']} already registered")
 
         # Creating new store
         store_id = uuid.uuid4().hex
-        new_store = {**store_data, "id": store_id}
-        stores[store_id] = new_store
-        return new_store, 201
+        stores[store_id] = {**validated_store_data, "id": store_id}
+        return stores[store_id]
