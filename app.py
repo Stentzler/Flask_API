@@ -11,6 +11,14 @@ def get_stores():
     return {"stores": list(stores.values())}
 
 
+@app.get("/store/<string:store_id>")
+def get_store_by_id(store_id):
+    try:
+        return stores[store_id]
+    except KeyError:
+        abort(404, message="Store not found")
+
+
 @app.post("/store")
 def create_store():
     store_data = request.get_json()
@@ -31,6 +39,31 @@ def create_store():
     new_store = {**store_data, "id": store_id}
     stores[store_id] = new_store
     return new_store, 201
+
+
+@app.delete("/store/<string:store_id>")
+def delete_store(store_id):
+    try:
+        del items[store_id]
+        return {"message": "Store deleted successfully"}
+    except:
+        abort(404, message="Store not found for the provided id")
+
+
+# ------------------------ Items
+
+
+@app.get("/item")
+def get_items():
+    return {"items": list(items.values())}
+
+
+@app.get("/item/<string:item_id>")
+def get_item_by_id(item_id):
+    try:
+        return items[item_id]
+    except KeyError:
+        abort(404, message="Item not found")
 
 
 # Params
@@ -66,22 +99,32 @@ def create_item():
     abort(404, message="Store not found")
 
 
-@app.get("/item")
-def get_items():
-    return {"items": list(items.values())}
-
-
-@app.get("/store/<string:store_id>")
-def get_store_by_id(store_id):
+@app.delete("/item/<string:item_id>")
+def delete_item(item_id):
     try:
-        return stores[store_id]
-    except KeyError:
-        abort(404, message="Store not found")
-
-
-@app.get("/item/<string:item_id>")
-def get_store_items(item_id):
-    try:
-        return items[item_id]
-    except KeyError:
+        del items[item_id]
+        return {"message": "item deleted"}
+    except:
         abort(404, message="Item not found")
+
+
+@app.put("/item/<string:item_id>")
+def update_item(item_id):
+    update_data = request.get_json()
+
+    # Validating the JSON payload
+    if "price" not in update_data or "name" not in update_data:
+        abort(
+            400,
+            message='Ensure to provide the following properties in your JSON payload: "name", "price"',
+        )
+
+    try:
+        ##-- Shortcut para MERGE de dicts items[item_id] = {**items[item_id], **update_data}
+        items[item_id] |= update_data
+        return items[item_id]
+    except:
+        abort(
+            404,
+            message="No item found for the provided id",
+        )
