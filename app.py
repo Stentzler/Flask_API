@@ -1,5 +1,6 @@
 import uuid
 from flask import Flask, request
+from flask_smorest import abort
 from db import items, stores
 
 app = Flask(__name__)
@@ -13,6 +14,19 @@ def get_stores():
 @app.post("/store")
 def create_store():
     store_data = request.get_json()
+
+    # Validating the JSON payload
+    if "name" not in store_data:
+        abort(
+            400,
+            'Ensure to provide the following properties in your JSON payload: "name"',
+        )
+
+    # Validating if store already exists
+    for store in stores.values():
+        if store_data["name"] == store["name"]:
+            abort(400, message=f"Store {store['name']} already registered")
+
     store_id = uuid.uuid4().hex
     new_store = {**store_data, "id": store_id}
     stores[store_id] = new_store
@@ -24,12 +38,32 @@ def create_store():
 def create_item():
     item_data = request.get_json()
 
+    # Validating the JSON payload
+    if (
+        "price" not in item_data
+        or "store_id" not in item_data
+        or "name" not in item_data
+    ):
+        abort(
+            400,
+            'Ensure to provide the following properties in your JSON payload: "name", "price" and "store_id"',
+        )
+
+    # Validating duplicated item name
+    for item in items.values():
+        if (
+            item_data["name"] == item["name"]
+            and item_data["store_id"] == item["store_id"]
+        ):
+            abort(400, message=f"{item['name']} is already registered in this store")
+
+    # Adding to DB
     if item_data["store_id"] in stores:
         item_id = uuid.uuid4().hex
         items[item_id] = {**item_data, "id": item_id}
         return items[item_id], 201
 
-    return {"message": "Store not found"}, 404
+    abort(404, message="Store not found")
 
 
 @app.get("/item")
@@ -42,7 +76,7 @@ def get_store_by_id(store_id):
     try:
         return stores[store_id]
     except KeyError:
-        return {"message": "Store not found"}, 404
+        abort(404, message="Store not found")
 
 
 @app.get("/item/<string:item_id>")
@@ -50,4 +84,4 @@ def get_store_items(item_id):
     try:
         return items[item_id]
     except KeyError:
-        return {"message": "Item not found"}, 404
+        abort(404, message="Item not found")
