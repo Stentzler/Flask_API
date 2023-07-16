@@ -45,8 +45,8 @@ class TagsInStore(MethodView):
 class LinkTagsToItems(MethodView):
     @blp.response(201, TagSchema)
     def post(self, item_id, tag_id):
-        item = ItemModel.get_or_404(item_id)
-        tag = TagModel.get_or_404(tag_id)
+        item = ItemModel.query.get_or_404(item_id)
+        tag = TagModel.query.get_or_404(tag_id)
 
         if item.store_id != tag.store_id:
             abort(
@@ -67,8 +67,8 @@ class LinkTagsToItems(MethodView):
 
     @blp.response(200, ItemsTagsSchema)
     def delete(self, item_id, tag_id):
-        item = ItemModel.get_or_404(item_id)
-        tag = TagModel.get_or_404(tag_id)
+        item = ItemModel.query.get_or_404(item_id)
+        tag = TagModel.query.get_or_404(tag_id)
 
         if item.store_id != tag.store_id:
             abort(

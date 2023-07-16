@@ -16,4 +16,4 @@ class TagModel(db.Model):
 
     # Relations
     store = db.relationship("StoreModel", back_populates="tags")
-    items = db.relationship("ItemModel", back_populate="tags", secondary="items_tags")
+    items = db.relationship("ItemModel", back_populates="tags", secondary="items_tags")
