@@ -1,8 +1,10 @@
-import uuid
-from flask import request
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-from schemas.schemas import StoreSchema
+
+from models import StoreModel
+from schemas.schemas import StoreSchema, PlainStoreSchema
+from db import db
 
 blp = Blueprint("stores", __name__, description=("Stores requests:"))
 
@@ -11,35 +13,34 @@ blp = Blueprint("stores", __name__, description=("Stores requests:"))
 class Store(MethodView):
     @blp.response(200, StoreSchema)
     def get(self, store_id):
-        try:
-            return stores[store_id]
-        except KeyError:
-            abort(404, message="Store not found")
+        store = StoreModel.query.get_or_404(store_id)
+        return store
 
     def delete(self, store_id):
-        try:
-            del stores[store_id]
-            return {"message": "Store deleted successfully"}
-        except:
-            abort(404, message="Store not found for the provided id")
+        store = StoreModel.query.get_or_404(store_id)
+        db.session.delete(store)
+        db.session.commit()
+        return {"message": "Store deleted succesfully"}
 
 
 @blp.route("/store")
 class StoreList(MethodView):
-    @blp.response(200, StoreSchema(many=True))
+    @blp.response(200, PlainStoreSchema(many=True))
     def get(self):
-        return stores.values()
+        return StoreModel.query.all()
 
     # Middleware validacao
     @blp.arguments(StoreSchema)
     @blp.response(201, StoreSchema)
     def post(self, validated_store_data):
-        # Validating if store already exists
-        for store in stores.values():
-            if validated_store_data["name"] == store["name"]:
-                abort(400, message=f"Store {store['name']} already registered")
+        store = StoreModel(**validated_store_data)
 
-        # Creating new store
-        store_id = uuid.uuid4().hex
-        stores[store_id] = {**validated_store_data, "id": store_id}
-        return stores[store_id]
+        try:
+            db.session.add(store)
+            db.session.commit()
+        except IntegrityError:
+            abort(400, message="A Store with this name already exists")
+        except SQLAlchemyError:
+            abort(500, message="Not able to create the store")
+
+        return store
