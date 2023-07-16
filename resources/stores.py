@@ -3,7 +3,7 @@ from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 
 from models import StoreModel
-from schemas.schemas import StoreSchema, PlainStoreSchema
+from schemas.schemas import PlainStoreSchema, StoreSchema
 from db import db
 
 blp = Blueprint("stores", __name__, description=("Stores requests:"))
