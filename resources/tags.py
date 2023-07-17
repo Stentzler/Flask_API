@@ -1,25 +1,28 @@
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy.exc import SQLAlchemyError
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 
-from models import TagModel, StoreModel, ItemModel
-from schemas.schemas import TagSchema, ItemsTagsSchema
+from models import TagModel, StoreModel, ItemModel, ItemsTagsModel
+from schemas import TagSchema, ItemsTagsSchema, PlainTagSchema
 from db import db
 
 blp = Blueprint("tags", __name__, description=("Tags requests:"))
 
 
 @blp.route("/store/<string:store_id>/tag")
-class TagsInStore(MethodView):
+class TagsFromStore(MethodView):
     @blp.response(200, TagSchema(many=True))
     def get(self, store_id):
-        store = StoreModel.query.get_or_404(store_id)
+        store = StoreModel.query.get(store_id)
+
+        if not store:
+            abort(400, message="No store found for the provided Id")
 
         tags_store = TagModel.query.filter(TagModel.store_id == store_id).all()
         return tags_store
-        # return store.tags.all()
+        # return store.tags.all()  #Mesmo resultado!
 
-    @blp.arguments(TagSchema)
+    @blp.arguments(PlainTagSchema)
     @blp.response(201, TagSchema)
     def post(self, tag_data, store_id):
         if TagModel.query.filter(
@@ -45,8 +48,13 @@ class TagsInStore(MethodView):
 class LinkTagsToItems(MethodView):
     @blp.response(201, TagSchema)
     def post(self, item_id, tag_id):
-        item = ItemModel.query.get_or_404(item_id)
-        tag = TagModel.query.get_or_404(tag_id)
+        item = ItemModel.query.get(item_id)
+        if not item:
+            abort(400, message="No item was found with the provided id")
+
+        tag = TagModel.query.get(tag_id)
+        if not tag:
+            abort(400, message="No tag was found for the provided id")
 
         if item.store_id != tag.store_id:
             abort(
@@ -54,8 +62,18 @@ class LinkTagsToItems(MethodView):
                 message="It's not possible to associate tags and items from different stores",
             )
 
+        has_relation = ItemsTagsModel.query.filter(
+            ItemsTagsModel.item_id == item_id and ItemsTagsModel.tag_id == tag_id
+        ).first()
+        if has_relation:
+            abort(
+                404,
+                message=f"Item <{item.name}> and tag <{tag.name}> are already related.",
+            )
+
         # SQLAlchemy Trata as relações many-many como uma lista
         item.tags.append(tag)
+        # OU tag.items.append(item)
 
         try:
             db.session.add(item)
@@ -67,8 +85,13 @@ class LinkTagsToItems(MethodView):
 
     @blp.response(200, ItemsTagsSchema)
     def delete(self, item_id, tag_id):
-        item = ItemModel.query.get_or_404(item_id)
-        tag = TagModel.query.get_or_404(tag_id)
+        item = ItemModel.query.get(item_id)
+        if not item:
+            abort(400, message="No item was found with the provided id")
+
+        tag = TagModel.query.get(tag_id)
+        if not tag:
+            abort(400, message="No tag was found for the provided id")
 
         if item.store_id != tag.store_id:
             abort(
@@ -92,9 +115,15 @@ class LinkTagsToItems(MethodView):
 class Tag(MethodView):
     @blp.response(200, TagSchema)
     def get(self, tag_id):
-        tag = TagModel.query.get_or_404(tag_id)
-        return tag
+        try:
+            tag = TagModel.query.get(tag_id)
+            if not tag:
+                abort(404, message="No tag found for the provided tag_id")
+            return tag
+        except SQLAlchemyError:
+            abort(500, message="Not able to retrieve data from our database")
 
+    # Exemplo de várias tratativas de erro
     @blp.response(
         202,
         description="Deletes a tag if no item is tagged with it.",
@@ -105,7 +134,10 @@ class Tag(MethodView):
         400, description="Returned if the tag is linked to one or more Item"
     )
     def delete(self, tag_id):
-        tag = TagModel.query.get_or_404(tag_id)
+        tag = TagModel.query.get(tag_id)
+
+        if not tag:
+            abort(404, message="No tag found for the provided tag_id")
 
         if not tag.items:
             db.session.delete(tag)

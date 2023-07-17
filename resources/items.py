@@ -13,8 +13,11 @@ blp = Blueprint("items", __name__, description="Items requests: ")
 class Item(MethodView):
     @blp.response(200, ItemSchema)
     def get(self, item_id):
-        item = ItemModel.query.get_or_404(item_id)
-        return item
+        try:
+            item = ItemModel.query.get_or_404(item_id)
+            return item
+        except SQLAlchemyError:
+            abort(500, message="Not able to retrieve data from our database")
 
     @blp.arguments(ItemUpdateSchema)  # Middleware
     @blp.response(200, ItemSchema)
@@ -24,31 +27,35 @@ class Item(MethodView):
         if not item:
             abort(400, message="The provided id does not match any item")
 
-        if "store_id" in validated_item_data:
-            store = StoreModel.query.get(validated_item_data["store_id"])
-            if not store:
-                abort(400, message="The provided id does not match any Store")
-
         for key, value in validated_item_data.items():
             setattr(item, key, value)
 
-        db.session.add(item)
-        db.session.commit()
-        return item
+        try:
+            db.session.add(item)
+            db.session.commit()
+            return item
+        except SQLAlchemyError:
+            abort(500, message="Not able to update data in our database")
 
     def delete(self, item_id):
         item = ItemModel.query.get_or_404(item_id)
-        db.session.delete(item)
-        db.session.commit()
-
-        return {"message": "Item deleted"}, 200
+        try:
+            db.session.delete(item)
+            db.session.commit()
+            return {"message": "Item deleted"}, 200
+        except SQLAlchemyError:
+            abort(500, message="Not able to delete item from our database")
 
 
 @blp.route("/item")
 class ItemList(MethodView):
     @blp.response(200, ItemSchema(many=True))
     def get(self):
-        return ItemModel.query.all()
+        try:
+            items = ItemModel.query.all()
+            return items
+        except SQLAlchemyError:
+            abort(500, message="Not able to retrieve data from our database")
 
     # Middleware -> Valida o request e passa um argument pra funcao seguinte
     @blp.arguments(ItemSchema)
@@ -61,6 +68,6 @@ class ItemList(MethodView):
             db.session.add(item)
             db.session.commit()
         except SQLAlchemyError:
-            abort(500, "Not able to insert the item")
+            abort(500, "Not able to insert the item in our database")
 
         return item
