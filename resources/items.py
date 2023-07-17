@@ -1,15 +1,15 @@
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy.exc import SQLAlchemyError
 
 from schemas.schemas import ItemSchema, ItemUpdateSchema
-from models import ItemModel, StoreModel
+from models import ItemModel
 from db import db
 
 blp = Blueprint("items", __name__, description="Items requests: ")
 
 
-@blp.route("/item/<string:item_id>")
+@blp.route("/item/<int:item_id>")
 class Item(MethodView):
     @blp.response(200, ItemSchema)
     def get(self, item_id):

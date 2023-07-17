@@ -1,0 +1,70 @@
+from flask.views import MethodView
+from flask_smorest import Blueprint, abort
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from passlib.hash import pbkdf2_sha256
+from flask_jwt_extended import create_access_token
+
+from schemas.schemas import UserSchema
+from models import UserModel
+from db import db
+
+blp = Blueprint("users", __name__, description="IUser requests: ")
+
+
+@blp.route("/user/register")
+class UserRegister(MethodView):
+    @blp.arguments(UserSchema)
+    @blp.response(201, UserSchema)
+    def post(self, user_data):
+        user_data["password"] = pbkdf2_sha256.hash(user_data["password"])
+        user = UserModel(**user_data)
+
+        try:
+            db.session.add(user)
+            db.session.commit()
+
+            return user
+        except IntegrityError as e:
+            abort(500, message="Username already in use")
+        except SQLAlchemyError as e:
+            abort(500, str(e))
+
+
+@blp.route("/user/<int:user_id>")
+class User(MethodView):
+    @blp.response(200, UserSchema)
+    def get(self, user_id):
+        user = UserModel.query.get(user_id)
+
+        if not user:
+            abort(404, message="No user found for the provided Id")
+
+        return user
+
+    def delete(self, user_id):
+        user = UserModel.query.get(user_id)
+
+        if not user:
+            abort(404, message="No user found for the provided Id")
+
+        try:
+            db.session.delete(user)
+            db.session.commit()
+            return {"message": "User deleted successfully"}, 200
+        except SQLAlchemyError as e:
+            abort(500, str(e))
+
+
+@blp.route("/user/login")
+class UserRegister(MethodView):
+    @blp.arguments(UserSchema)
+    def post(self, user_data):
+        user = UserModel.query.filter(
+            UserModel.username == user_data["username"]
+        ).first()
+
+        if user and pbkdf2_sha256.verify(user_data["password"], user.password):
+            access_token = create_access_token(identity=user.user_id)
+            return {"access_token": access_token}, 200
+
+        abort(400, message="username or password is invalid")
