@@ -1,6 +1,7 @@
 from db import db
 
 
+# Many_to_Many
 class ItemsTagsModel(db.Model):
     __tablename__ = "items_tags"
 

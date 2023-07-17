@@ -9,7 +9,7 @@ class StoreModel(db.Model):
     name = db.Column(db.String(80), nullable=False, unique=True)
 
     # Relations
-    items = db.relationship(
+    items = db.relationship(  # backpopulates aponta para o paramentro na outra tabela
         "ItemModel", back_populates="store", lazy="dynamic", cascade="all, delete"
     )
     tags = db.relationship(
