@@ -41,6 +41,18 @@ def create_app(db_url=None):
     def check_if_token_is_blocked(jwt_header, jwt_payload):
         return jwt_payload["jti"] in BLOCKLIST
 
+    @jwt.needs_fresh_token_loader
+    def needs_fresh_token_loader(jwt_header, jwt_payload):
+        return (
+            jsonify(
+                {
+                    "message": "Token is not fresh",
+                    "error": "fresh_token_required",
+                }
+            ),
+            401,
+        )
+
     @jwt.revoked_token_loader
     def revoked_token_loader(jwt_header, jwt_payload):
         return (
