@@ -2,11 +2,12 @@ from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from passlib.hash import pbkdf2_sha256
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt
 
 from schemas.schemas import UserSchema
 from models import UserModel
 from db import db
+from blocked_tokens import BLOCKLIST
 
 blp = Blueprint("users", __name__, description="IUser requests: ")
 
@@ -56,7 +57,7 @@ class User(MethodView):
 
 
 @blp.route("/user/login")
-class UserRegister(MethodView):
+class UserLogin(MethodView):
     @blp.arguments(UserSchema)
     def post(self, user_data):
         user = UserModel.query.filter(
@@ -68,3 +69,13 @@ class UserRegister(MethodView):
             return {"access_token": access_token}, 200
 
         abort(400, message="username or password is invalid")
+
+
+@blp.route("/user/logout")
+class UserLogout(MethodView):
+    @jwt_required()
+    def post(self):
+        jti = get_jwt()["jti"]
+        BLOCKLIST.add(jti)
+
+        return {"message": "Successfully logged out"}, 200

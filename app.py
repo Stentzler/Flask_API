@@ -1,9 +1,10 @@
 import os
-from flask import Flask
+from flask import Flask, jsonify
 from flask_smorest import Api
 from flask_jwt_extended import JWTManager
 
 from db import db
+from blocked_tokens import BLOCKLIST
 
 from resources.items import blp as ItemBlueprint
 from resources.stores import blp as StoreBlueprint
@@ -34,6 +35,41 @@ def create_app(db_url=None):
 
     app.config["JWT_SECRET_KEY"] = "X88323!322x434387365_b861A6952514@#358!34"
     jwt = JWTManager(app)
+
+    # ----- jwt settings:
+    @jwt.token_in_blocklist_loader
+    def check_if_token_is_blocked(jwt_header, jwt_payload):
+        return jwt_payload["jti"] in BLOCKLIST
+
+    @jwt.revoked_token_loader
+    def revoked_token_loader(jwt_header, jwt_payload):
+        return (
+            jsonify(
+                {
+                    "message": "Token is not valid, please log in again.",
+                    "error": "token_revoked",
+                }
+            ),
+            401,
+        )
+
+    @jwt.expired_token_loader
+    def expired_token_callback(jwt_header, jwt_payload):
+        return (
+            jsonify({"message": "The token has expired", "error": "token_expired"}),
+            401,
+        )
+
+    @jwt.invalid_token_loader
+    def invalid_token_loader(error):
+        return (
+            jsonify(
+                {"message": "Signature verification failed", "error": "invalid_token"}
+            ),
+            401,
+        )
+
+    # -------
 
     with app.app_context():
         db.create_all()
