@@ -2,9 +2,11 @@ import os
 from flask import Flask, jsonify
 from flask_smorest import Api
 from flask_jwt_extended import JWTManager
+from flask_migrate import Migrate
+from dotenv import load_dotenv
 
 from db import db
-from blocked_tokens import BLOCKLIST
+from blocked_tokens import BLOCKLIST  # mover para a db
 
 from resources.items import blp as ItemBlueprint
 from resources.stores import blp as StoreBlueprint
@@ -14,6 +16,7 @@ from resources.users import blp as UserBlueprint
 
 def create_app(db_url=None):
     app = Flask(__name__)
+    load_dotenv()
 
     app.config["PROPAGATE_EXCEPTIONS"] = True
     app.config["API_TITLE"] = "Stores REST API"
@@ -30,10 +33,10 @@ def create_app(db_url=None):
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
     db.init_app(app)
-
+    migrate = Migrate(app, db)
     api = Api(app)
 
-    app.config["JWT_SECRET_KEY"] = "X88323!322x434387365_b861A6952514@#358!34"
+    app.config["JWT_SECRET_KEY"] = os.getenv("DATABASE_URL", "secret_123")
     jwt = JWTManager(app)
 
     # ----- jwt settings:
@@ -82,9 +85,11 @@ def create_app(db_url=None):
         )
 
     # -------
-
-    with app.app_context():
-        db.create_all()
+    # Exemplo para criacao da database via SQLalchemy, cria uma database sqlite3
+    # Normalmente pode ser utilizado para testes e desenvolvimento local antes da integracao
+    # with app.app_context():
+    #     db.create_all()
+    # -------
 
     api.register_blueprint(ItemBlueprint)
     api.register_blueprint(StoreBlueprint)
